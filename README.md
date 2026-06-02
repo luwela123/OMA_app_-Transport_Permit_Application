@@ -30,22 +30,25 @@ The mobile application allows farmers to:
 The admin dashboard allows administrators to:
 
 - Review applications
-- Approve or reject requests
-- Generate permits
-- Manage users
+- Approve or reject and mark paid application requests
+- Generate and print permits
+  message user for additional documents(through in-app notification) 
 - View reports and analytics
 
 ## Technologies Used
 
-- Flutter
+- Flutter(dart)
 - Firebase Authentication
 - Firebase Realtime Database
-- Oracle Database
 - Node.js
 - React.js
 
 ## Authors
 
-- Luwela Espinosa
+- Jelly D. Eldo
+- Kimverlie M. Eldo
+- Luwela P. Espinosa
+- Nelvy M. Ortega
+## Purpose
 - Capstone Project Group
 - Palawan State University
