@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../firebase_service.dart';
+import 'signup.dart';
 import 'admin_dashboard.dart';
-import 'signin.dart';
 
-class SignUpPage extends StatefulWidget {
-  const SignUpPage({super.key});
+class SignInPage extends StatefulWidget {
+  const SignInPage({super.key});
   @override
-  State<SignUpPage> createState() => _SignUpPageState();
+  State<SignInPage> createState() => _SignInPageState();
 }
 
-class _SignUpPageState extends State<SignUpPage> {
+class _SignInPageState extends State<SignInPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
-  final _confirm = TextEditingController();
   bool _loading = false;
   String? _error;
 
@@ -21,27 +20,12 @@ class _SignUpPageState extends State<SignUpPage> {
   void dispose() {
     _email.dispose();
     _password.dispose();
-    _confirm.dispose();
     super.dispose();
   }
 
-  Future<void> _signUp() async {
-    final email = _email.text.trim();
-    final pw = _password.text;
-    final cpw = _confirm.text;
-
-    if (email.isEmpty || pw.isEmpty) {
-      setState(() => _error = 'Please fill in all fields');
-      return;
-    }
-
-    if (pw != cpw) {
-      setState(() => _error = 'Passwords do not match');
-      return;
-    }
-
-    if (pw.length < 6) {
-      setState(() => _error = 'Password must be at least 6 characters');
+  Future<void> _signIn() async {
+    if (_email.text.isEmpty || _password.text.isEmpty) {
+      setState(() => _error = "Please enter email and password.");
       return;
     }
 
@@ -51,53 +35,41 @@ class _SignUpPageState extends State<SignUpPage> {
     });
 
     try {
-      // 1. Create User
-      await FirebaseService.instance.auth.createUserWithEmailAndPassword(
-        email: email, 
-        password: pw
+      // 1. Attempt Sign In
+      await FirebaseService.instance.auth.signInWithEmailAndPassword(
+        email: _email.text.trim(),
+        password: _password.text,
       );
 
-      // 2. Set Database Data
-      // If this fails (e.g. permission denied), catch it so we don't crash
+      // 2. Attempt Database Update
       try {
         await FirebaseService.instance.autoPromoteCurrentUser();
-      } catch (dbError) {
-        debugPrint("Database init error: $dbError");
+      } catch (e) {
+        // If database fails, we still allow login, but log the error
+        debugPrint("Auto-promote failed (ignoring for login): $e");
       }
 
       if (!mounted) return;
 
-      // 3. Navigate to Dashboard clearing history
-      Navigator.pushAndRemoveUntil(
+      // 3. Navigate
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const AdminDashboard()),
-        (route) => false,
       );
     } on FirebaseAuthException catch (e) {
       setState(() {
-        if (e.code == 'weak-password') {
-          _error = 'The password provided is too weak.';
-        } else if (e.code == 'email-already-in-use') {
-          _error = 'The account already exists for that email.';
+        if (e.code == 'user-not-found') {
+          _error = 'No user found for that email.';
+        } else if (e.code == 'wrong-password') {
+          _error = 'Wrong password provided.';
         } else {
-          _error = e.message ?? 'Registration failed.';
+          _error = e.message ?? 'Authentication failed.';
         }
       });
     } catch (e) {
-      setState(() => _error = 'Unexpected error: $e');
+      setState(() => _error = 'Error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  void _goToLogin() {
-    if (_loading) return;
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const SignInPage()),
-      );
     }
   }
 
@@ -131,53 +103,54 @@ class _SignUpPageState extends State<SignUpPage> {
               const Text('Email'),
               const SizedBox(height: 6),
               TextField(
-                controller: _email, 
+                controller: _email,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(hintText: 'Enter email'),
+                decoration: const InputDecoration(hintText: 'Enter your email'),
               ),
               const SizedBox(height: 16),
 
               const Text('Password'),
               const SizedBox(height: 6),
               TextField(
-                controller: _password, 
+                controller: _password,
                 obscureText: true,
-                decoration: const InputDecoration(hintText: 'Minimum 6 characters'),
-              ),
-              const SizedBox(height: 16),
-
-              const Text('Confirm password'),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _confirm, 
-                obscureText: true,
-                decoration: const InputDecoration(hintText: 'Re-type password'),
+                decoration: const InputDecoration(hintText: 'Enter your password'),
               ),
               const SizedBox(height: 28),
 
               _PillButton(
-                label: _loading ? 'Registering…' : 'Register',
-                onPressed: _loading ? null : _signUp,
+                label: _loading ? 'Logging in…' : 'Login',
+                onPressed: _loading ? null : _signIn,
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: const [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('Or', style: TextStyle(color: Colors.black54)),
+                  ),
+                  Expanded(child: Divider()),
+                ],
               ),
               const SizedBox(height: 12),
 
               Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Already have an account? '),
-                    TextButton(
-                      onPressed: _goToLogin,
-                      child: const Text('Login'),
-                    ),
-                  ],
+                child: TextButton(
+                  onPressed: _loading
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SignUpPage()),
+                          ),
+                  child: const Text('Register New Account'),
                 ),
               ),
-
               if (_error != null) ...[
                 const SizedBox(height: 12),
                 Text(
-                  _error!, 
+                  _error!,
                   style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
